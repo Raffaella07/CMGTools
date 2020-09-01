@@ -1,4 +1,4 @@
-from CMGTools.TTHAnalysis.tools.nanoAOD.componentDependentModuleWrapper import componentDependentModuleWrapper
+from CMGTools.RKAnalysis.tools.nanoAOD.componentDependentModuleWrapper import componentDependentModuleWrapper
 from PhysicsTools.NanoAODTools.postprocessing.modules.common.puWeightProducer import puAutoWeight_2016, puAutoWeight_2017, puAutoWeight_2018
 
 class autoPuWeightModule( componentDependentModuleWrapper ):

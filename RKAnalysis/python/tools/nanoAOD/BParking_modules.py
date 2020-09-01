@@ -59,27 +59,58 @@ def KMuMuData ( process, cuts):
     process.append(CreateVars)
     return process
 
-def KEEData ( process, cuts,usePF,useLowPtE):
+def KEEData_Bpt( process, cuts,usePF,useLowPtE):
     from PhysicsTools.NanoAODTools.postprocessing.modules.bpark.collectionSkimmer import collectionSkimmer
     from PhysicsTools.NanoAODTools.postprocessing.modules.bpark.collectionEmbeder import collectionEmbeder
+    from PhysicsTools.NanoAODTools.postprocessing.modules.bpark.collectionCleaner import collectionCleaner
     from PhysicsTools.NanoAODTools.postprocessing.modules.bpark.branchCreator import branchCreator
     cuts2 =cuts
     if usePF and not useLowPtE:
       cuts2= cuts and (lambda l: l.e1isPF == 1 and l.e2isPF == 1)
     elif not usePF and useLowPtE:
       cuts2 =cuts and (lambda l: l.e1isPF == 0 and l.e2isPF == 0)
-    BSkim = collectionSkimmer(input = "BToKEE",
-                            output = "SkimBToKEE",
+    BSkim_Bpt = collectionSkimmer(input = "BToKEE",
+                            output = "SkimPtBToKEE",
                             importedVariables = ["Electron_isPF","Electron_isPF"],
                             importIds = ["l1Idx","l2Idx"],
                             varnames = ["e1isPF","e2isPF"],                   
-                            selector = cuts2,
+                       #     selector = cuts2,
+			    sortOutput = True,
+		            
+                            sortkey = lambda x : x.fit_pt, # variable to sort
                             branches = ["fit_pt","fit_mass","mass","l_xy",
                                         "l_xy_unc","fit_cos2D","svprob",
                                         "l1Idx","l2Idx","kIdx","fit_eta",
                                         "mll_fullfit"],
                             flat = False
     )
+    process.append(BSkim_Bpt)
+    BSkim_svProb = collectionSkimmer(input = "BToKEE",
+                            output = "SkimProbBToKEE",
+                            importedVariables = ["Electron_isPF","Electron_isPF"],
+                            importIds = ["l1Idx","l2Idx"],
+                            varnames = ["e1isPF","e2isPF"],                   
+                            #selector = cuts2,
+			    sortOutput = True,
+		            
+                            sortkey = lambda x : x.svprob, # variable to sort
+                            branches = ["fit_pt","fit_mass","mass","l_xy",
+                                        "l_xy_unc","fit_cos2D","svprob",
+                                        "l1Idx","l2Idx","kIdx","fit_eta",
+                                        "mll_fullfit"],
+                            flat = False
+    )
+    process.append(BSkim_svProb)
+    BSkim = collectionCleaner(FirstColl = "SkimPtBToKEE",
+			      SecondColl= "SkimProbBToKEE",
+			      output = "SkimBToKEE",
+                              branches = ["fit_pt","fit_mass","mass","l_xy",
+                                        "l_xy_unc","fit_cos2D","svprob",
+                                        "l1Idx","l2Idx","kIdx","fit_eta",
+                                        "mll_fullfit"],
+                              flat = False
+			     )
+
     process.append(BSkim)
     El1 = collectionEmbeder( inputColl = "Electron",
                              embededColl = "SkimBToKEE",
@@ -102,15 +133,97 @@ def KEEData ( process, cuts,usePF,useLowPtE):
                            embededCollIdx = "kIdx"
     )
     process.append(K)
-    CreateVars = branchCreator(
+    El1 = collectionEmbeder( inputColl = "Electron",
+                             embededColl = "SkimProbBToKEE",
+                             inputBranches = ["mvaId","isPF","pt","eta","phi","fBrem","hoe","vz"],
+                             embededBranches = ["e1mvaId","e1isPF","e1Pt","e1Eta","e1Phi","e1fBrem","e1hoe","e1Vz"], 
+                             embededCollIdx = "l1Idx"
+    )
+    process.append(El1)
+    El2 = collectionEmbeder( inputColl = "Electron",
+                             embededColl = "SkimProbBToKEE",
+                             inputBranches = ["mvaId","isPF","pt","eta","phi","fBrem","hoe","vz"],
+                             embededBranches = ["e2mvaId","e2isPF","e2Pt","e2Eta","e2Phi","e2fBrem","e2hoe","e2Vz"],
+                             embededCollIdx = "l2Idx"
+    )
+    process.append(El2)
+    K = collectionEmbeder( inputColl = "ProbeTracks",
+                           embededColl = "SkimProbBToKEE",
+                           inputBranches = ["pt","eta","phi","vz"],
+                           embededBranches = ["kPt","kEta","kPhi","kVz"],
+                           embededCollIdx = "kIdx"
+    )
+    process.append(K)
+    CreateVars= branchCreator(
         collection="SkimBToKEE",
         inputBranches=[["l_xy","l_xy_unc"],["e1Vz","e2Vz"],["kVz","e1Vz","e2Vz"],["e1Eta","e1Phi","e2Eta","e2Phi"],["kEta","kPhi","e1Eta","e1Phi","e2Eta","e2Phi"]],
         operation=["{0}/{1}","abs({0}-{1})","min(abs({0}-{1}),abs({0}-{2}))","deltaR({0},{1},{2},{3})","min( deltaR({0},{1},{2},{3}),deltaR({0},{1},{3},{4}))"],
         createdBranches=["l_xy_sig","e1e2Dz","eKDz","e1e2Dr","eKDr"]
     )
     process.append(CreateVars)
+#   CreateVars_c2 = branchCreator(
+#       collection="SkimProbBToKEE",
+#       inputBranches=[["l_xy","l_xy_unc"],["e1Vz","e2Vz"],["kVz","e1Vz","e2Vz"],["e1Eta","e1Phi","e2Eta","e2Phi"],["kEta","kPhi","e1Eta","e1Phi","e2Eta","e2Phi"]],
+#       operation=["{0}/{1}","abs({0}-{1})","min(abs({0}-{1}),abs({0}-{2}))","deltaR({0},{1},{2},{3})","min( deltaR({0},{1},{2},{3}),deltaR({0},{1},{3},{4}))"],
+#       createdBranches=["l_xy_sig","e1e2Dz","eKDz","e1e2Dr","eKDr"]
+#   )
+#   process.append(CreateVars_c2)
     return process
 
+#def KEEData_svprob( process, cuts,usePF,useLowPtE):
+#   from PhysicsTools.NanoAODTools.postprocessing.modules.bpark.collectionSkimmer import collectionSkimmer
+#   from PhysicsTools.NanoAODTools.postprocessing.modules.bpark.collectionEmbeder import collectionEmbeder
+#   from PhysicsTools.NanoAODTools.postprocessing.modules.bpark.branchCreator import branchCreator
+#   cuts2 =cuts
+#   if usePF and not useLowPtE:
+#     cuts2= cuts and (lambda l: l.e1isPF == 1 and l.e2isPF == 1)
+#   elif not usePF and useLowPtE:
+#     cuts2 =cuts and (lambda l: l.e1isPF == 0 and l.e2isPF == 0)
+#   BSkim_svProb = collectionSkimmer(input = "BToKEE",
+#                           output = "SkimBToKEE",
+#                           importedVariables = ["Electron_isPF","Electron_isPF"],
+#                           importIds = ["l1Idx","l2Idx"],
+#                           varnames = ["e1isPF","e2isPF"],                   
+#                           selector = cuts2,
+#       		    sortOutput = True,
+#       	            
+#                           sortkey = lambda x : x.svprob, # variable to sort
+#                           branches = ["fit_pt","fit_mass","mass","l_xy",
+#                                       "l_xy_unc","fit_cos2D","svprob",
+#                                       "l1Idx","l2Idx","kIdx","fit_eta",
+#                                       "mll_fullfit"],
+#                           flat = False
+#   )
+#   process.append(BSkim_svProb)
+#   El1 = collectionEmbeder( inputColl = "Electron",
+#                            embededColl = "SkimBToKEE",
+#                            inputBranches = ["mvaId","isPF","pt","eta","phi","fBrem","hoe","vz"],
+#                            embededBranches = ["e1mvaId","e1isPF","e1Pt","e1Eta","e1Phi","e1fBrem","e1hoe","e1Vz"], 
+#                            embededCollIdx = "l1Idx"
+#   )
+#   process.append(El1)
+#   El2 = collectionEmbeder( inputColl = "Electron",
+#                            embededColl = "SkimBToKEE",
+#                            inputBranches = ["mvaId","isPF","pt","eta","phi","fBrem","hoe","vz"],
+#                            embededBranches = ["e2mvaId","e2isPF","e2Pt","e2Eta","e2Phi","e2fBrem","e2hoe","e2Vz"],
+#                            embededCollIdx = "l2Idx"
+#   )
+#   process.append(El2)
+#   K = collectionEmbeder( inputColl = "ProbeTracks",
+#                          embededColl = "SkimBToKEE",
+#                          inputBranches = ["pt","eta","phi","vz"],
+#                          embededBranches = ["kPt","kEta","kPhi","kVz"],
+#                          embededCollIdx = "kIdx"
+#   )
+#   process.append(K)
+#   CreateVars = branchCreator(
+#       collection="SkimBToKEE",
+#       inputBranches=[["l_xy","l_xy_unc"],["e1Vz","e2Vz"],["kVz","e1Vz","e2Vz"],["e1Eta","e1Phi","e2Eta","e2Phi"],["kEta","kPhi","e1Eta","e1Phi","e2Eta","e2Phi"]],
+#       operation=["{0}/{1}","abs({0}-{1})","min(abs({0}-{1}),abs({0}-{2}))","deltaR({0},{1},{2},{3})","min( deltaR({0},{1},{2},{3}),deltaR({0},{1},{3},{4}))"],
+#       createdBranches=["l_xy_sig","e1e2Dz","eKDz","e1e2Dr","eKDr"]
+#   )
+#   process.append(CreateVars)
+#   return process
 
 def KMuMuMC (process,Jpsi=[]):
    from PhysicsTools.NanoAODTools.postprocessing.modules.bpark.genDecayConstructorPython import genDecayConstructorPython
