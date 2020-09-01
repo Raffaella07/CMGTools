@@ -1,5 +1,8 @@
+
+
 # Short recipe for CMGTools 
 
+CMG is a general analysis tool developed and maintained by CMS. Is being used by many analysis. CMG provides several common tools and functionallities and each analysis developing their code using those tools. The present code is dedicated to B physics in general and in particular Rk analysis for LowPT LowPT electrons.
 For the general recipe, [follow these instructions](https://twiki.cern.ch/twiki/bin/view/CMS/CMGToolsReleasesExperimental).
 
 --------------
